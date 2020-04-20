@@ -1,23 +1,59 @@
 from zipfile import ZipFile, ZIP_DEFLATED
 from cryptography.fernet import Fernet
 import os.path
-import sys
+import os
+import base64
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-zipFilePath = 'c:\\temp\\file-backup.zip'
+destPath = 'c:\\temp'
+zipFileName = 'file-backup.zip'
+configFileName = 'filelist.cfg'
+encryptedConfigFileName = 'filelist.bin'
 
-def encryptFile(fileName, key):
-    with open(fileName) as fp:
+
+def generateKey(password):
+    encoded_password = password.encode()  # Convert to type bytes
+    salt = b'potato_chips_salty'
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+        backend=default_backend()
+    )
+    return base64.urlsafe_b64encode(kdf.derive(encoded_password))  # Can only use kdf once
+
+
+def encryptFile(directory, fileName, outputFileName, password):
+    filePath = os.path.join(directory, fileName)
+
+    with open(filePath, 'rb') as fp:
         contents = fp.read()
-        print('Original:')
-        print(contents)
 
-        tempKey = Fernet.generate_key()
+        tempKey = generateKey(password)
         encrKey = Fernet(tempKey)
-        messageBytes = bytes(contents, 'utf8')
-        encryptedContents = encrKey.encrypt(messageBytes)
+        encryptedContents = encrKey.encrypt(contents)
 
-        with open('test_encrypted.bin', 'wb') as outputFile:
+        outputFilePath = os.path.join(directory, outputFileName)
+        with open(outputFilePath, 'wb') as outputFile:
             outputFile.write(encryptedContents)
+
+
+def decryptFile(directory, fileName, outputFileName, password):
+    filePath = os.path.join(directory, fileName)
+
+    with open(filePath, 'rb') as fp:
+        contents = fp.read()
+
+        tempKey = generateKey(password)
+        encrKey = Fernet(tempKey)
+        descriptedContents = encrKey.decrypt(contents)
+
+        outputFilePath = os.path.join(directory, outputFileName)
+        with open(outputFilePath, 'wb') as outputFile:
+            outputFile.write(descriptedContents)
 
 
 def readFileList(fileName):
@@ -36,7 +72,10 @@ def createZipFile(filePath):
 
 
 # ------------------ Start ------------------
-encryptFile('filelist.cfg', 'mykey')
+scriptDir = os.path.dirname(os.path.realpath(__file__))
+
+encryptFile(scriptDir, configFileName, encryptedConfigFileName, 'mypw')
+decryptFile(scriptDir, encryptedConfigFileName, 'decrypted_filelist.cfg', 'mypw')
 
 #fileList = readFileList('filelist.cfg')
 #createZipFile(zipFilePath)
