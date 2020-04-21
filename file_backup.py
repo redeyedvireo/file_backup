@@ -9,10 +9,10 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-destPath = 'c:\\temp'
-zipFileName = 'file-backup.zip'
-configFileName = 'filelist.cfg'
-encryptedConfigFileName = 'filelist.bin'
+gDestPath = 'c:\\temp'
+gZipFileName = 'file-backup.zip'
+gConfigFileName = 'filelist.cfg'
+gEncryptedConfigFileName = 'filelist.bin'
 
 
 def generateKey(password):
@@ -34,13 +34,22 @@ def encryptFile(directory, fileName, outputFileName, password):
     with open(filePath, 'rb') as fp:
         contents = fp.read()
 
-        tempKey = generateKey(password)
-        encrKey = Fernet(tempKey)
-        encryptedContents = encrKey.encrypt(contents)
+        # tempKey = generateKey(password)
+        # encrKey = Fernet(tempKey)
+        # encryptedContents = encrKey.encrypt(contents)
+
+        encryptedContents = encryptBuffer(contents, password)
 
         outputFilePath = os.path.join(directory, outputFileName)
         with open(outputFilePath, 'wb') as outputFile:
             outputFile.write(encryptedContents)
+
+
+def encryptBuffer(buffer, password):
+    ''' buffer must be bytes. '''
+    tempKey = generateKey(password)
+    encrKey = Fernet(tempKey)
+    return encrKey.encrypt(buffer)
 
 
 def decryptFile(directory, fileName, outputFileName, password):
@@ -74,11 +83,45 @@ def readEncryptedFile(directory, fileName, password):
 
         return descriptedContents.decode(), True
 
+
+def readEncryptedFileList(configFileDirectory, configFileName, password):
+    contents, success = readEncryptedFile(configFileDirectory, configFileName, password)
+
+    if success:
+        fileList = contents.split()
+        return fileList, True
+    else:
+        return [], False
+
+
+def writeEncryptedFileList(configFileDirectory, configFileName, fileList, password):
+    writeEncryptedFile(configFileDirectory, configFileName, "\n".join(fileList), password)
+
+
+def writeEncryptedFile(configFileDirectory, configFileName, fileContents, password):
+    encryptedContents = encryptBuffer(fileContents.encode(), password)
+
+    outputFilePath = os.path.join(configFileDirectory, configFileName)
+    with open(outputFilePath, 'wb') as outputFile:
+        outputFile.write(encryptedContents)
+
+
 def readFileList(fileName):
     with open(fileName) as fp:
         lines = fp.readlines()
         fileList = [line.strip() for line in lines]
         return fileList
+
+
+def addFileToList(configFileDirectory, configFileName, lineToAdd, password):
+    fileList, success = readEncryptedFileList(configFileDirectory, configFileName, password)
+
+    if success:
+        # print('File list')
+        # for item in fileList:
+        #     print(item)
+        fileList.append(lineToAdd)
+        writeEncryptedFileList(configFileDirectory, configFileName, fileList, password)
 
 
 def createZipFile(filePath):
@@ -105,14 +148,22 @@ if __name__ == "__main__":
     args = argParser.parse_args()
 
     if args.display:
-        password = getpass.getpass()
-        contents, success = readEncryptedFile(scriptDir, encryptedConfigFileName, password)    # The password is 'mypw'
+        filePassword = getpass.getpass()
+        contents, success = readEncryptedFile(scriptDir, gEncryptedConfigFileName, filePassword)    # The password is 'mypw'
 
         if success:
             print(contents)
 
     elif args.add:
-        print('Adding: {}'.format(args.add))
+        filePassword = getpass.getpass()
+        print('Added: {}'.format(args.add))
+        addFileToList(scriptDir, gEncryptedConfigFileName, args.add, filePassword)
+
+        # Should now print the complete list
+        contents, success = readEncryptedFile(scriptDir, gEncryptedConfigFileName, filePassword)    # The password is 'mypw'
+
+        if success:
+            print(contents)
 
     # encryptFile(scriptDir, configFileName, encryptedConfigFileName, 'mypw')
     # decryptFile(scriptDir, encryptedConfigFileName, 'decrypted_filelist.cfg', 'mypw')
