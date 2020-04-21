@@ -2,4 +2,4 @@
 /.idea/
 *.zip
 *.bin
-/filelist.cfg
+*fileList.cfg
