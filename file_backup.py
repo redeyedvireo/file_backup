@@ -1,7 +1,9 @@
 from zipfile import ZipFile, ZIP_DEFLATED
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 import os.path
 import os
+import argparse
+import getpass
 import base64
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -56,6 +58,22 @@ def decryptFile(directory, fileName, outputFileName, password):
             outputFile.write(descriptedContents)
 
 
+def readEncryptedFile(directory, fileName, password):
+    filePath = os.path.join(directory, fileName)
+
+    with open(filePath, 'rb') as fp:
+        contents = fp.read()
+
+        tempKey = generateKey(password)
+        encrKey = Fernet(tempKey)
+        try:
+            descriptedContents = encrKey.decrypt(contents)
+        except InvalidToken:
+            print('Incorrect password')
+            return '', False
+
+        return descriptedContents.decode(), True
+
 def readFileList(fileName):
     with open(fileName) as fp:
         lines = fp.readlines()
@@ -72,10 +90,32 @@ def createZipFile(filePath):
 
 
 # ------------------ Start ------------------
-scriptDir = os.path.dirname(os.path.realpath(__file__))
+if __name__ == "__main__":
+    scriptDir = os.path.dirname(os.path.realpath(__file__))
+    argParser = argparse.ArgumentParser()
 
-encryptFile(scriptDir, configFileName, encryptedConfigFileName, 'mypw')
-decryptFile(scriptDir, encryptedConfigFileName, 'decrypted_filelist.cfg', 'mypw')
+    argParser.add_argument('--display', help='Display current list of files to back up', action='store_true')
+    argParser.add_argument('--add', help='Add a file to back up', type=str)
+    argParser.add_argument('--remove', help='Remove a file from the back up list', type=str)
 
-#fileList = readFileList('filelist.cfg')
-#createZipFile(zipFilePath)
+    # Note: don't get credentials of any kind on the command-line.  Instead, prompt for this at runtime.
+    # argParser.add_argument('ProxyUserName', help='User name for proxy authentication', type=str)
+    # argParser.add_argument('ProxyPassword', help='Password for proxy authentication', type=str)
+
+    args = argParser.parse_args()
+
+    if args.display:
+        password = getpass.getpass()
+        contents, success = readEncryptedFile(scriptDir, encryptedConfigFileName, password)    # The password is 'mypw'
+
+        if success:
+            print(contents)
+
+    elif args.add:
+        print('Adding: {}'.format(args.add))
+
+    # encryptFile(scriptDir, configFileName, encryptedConfigFileName, 'mypw')
+    # decryptFile(scriptDir, encryptedConfigFileName, 'decrypted_filelist.cfg', 'mypw')
+
+    #fileList = readFileList('filelist.cfg')
+    #createZipFile(zipFilePath)
