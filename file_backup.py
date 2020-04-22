@@ -124,6 +124,14 @@ def addFileToList(configFileDirectory, configFileName, lineToAdd, password):
         writeEncryptedFileList(configFileDirectory, configFileName, fileList, password)
 
 
+def removeFileFromList(configFileDirectory, configFileName, lineNumberToRemove, password):
+    fileList, success = readEncryptedFileList(configFileDirectory, configFileName, password)
+
+    if success:
+        if lineNumberToRemove < len(fileList):
+            del fileList[lineNumberToRemove]
+            writeEncryptedFileList(configFileDirectory, configFileName, fileList, password)
+
 def createZipFile(filePath):
     # Note that if no compression parameter is given, the resulting zip file will not be compressed.
     with ZipFile(filePath, mode='w', compression=ZIP_DEFLATED) as myzip:
@@ -137,13 +145,9 @@ if __name__ == "__main__":
     scriptDir = os.path.dirname(os.path.realpath(__file__))
     argParser = argparse.ArgumentParser()
 
-    argParser.add_argument('--display', help='Display current list of files to back up', action='store_true')
-    argParser.add_argument('--add', help='Add a file to back up', type=str)
-    argParser.add_argument('--remove', help='Remove a file from the back up list', type=str)
-
-    # Note: don't get credentials of any kind on the command-line.  Instead, prompt for this at runtime.
-    # argParser.add_argument('ProxyUserName', help='User name for proxy authentication', type=str)
-    # argParser.add_argument('ProxyPassword', help='Password for proxy authentication', type=str)
+    argParser.add_argument('-d', '--display', help='Display current list of files to back up', action='store_true')
+    argParser.add_argument('-a', '--add', help='Add a file to back up', type=str)
+    argParser.add_argument('-r', '--remove', help='Remove a file from the back up list', type=str)
 
     args = argParser.parse_args()
 
@@ -159,7 +163,18 @@ if __name__ == "__main__":
         print('Added: {}'.format(args.add))
         addFileToList(scriptDir, gEncryptedConfigFileName, args.add, filePassword)
 
-        # Should now print the complete list
+        # Print the complete list
+        contents, success = readEncryptedFile(scriptDir, gEncryptedConfigFileName, filePassword)    # The password is 'mypw'
+
+        if success:
+            print(contents)
+
+    elif args.remove:
+        print('Removing item {}'.format(args.remove))
+        filePassword = getpass.getpass()
+        removeFileFromList(scriptDir, gEncryptedConfigFileName, int(args.remove), filePassword)
+
+        # Print the complete list
         contents, success = readEncryptedFile(scriptDir, gEncryptedConfigFileName, filePassword)    # The password is 'mypw'
 
         if success:
