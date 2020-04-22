@@ -132,6 +132,17 @@ def removeFileFromList(configFileDirectory, configFileName, lineNumberToRemove, 
             del fileList[lineNumberToRemove]
             writeEncryptedFileList(configFileDirectory, configFileName, fileList, password)
 
+
+def printFileList(configFileDirectory, configFileName, password):
+    fileList, success = readEncryptedFileList(configFileDirectory, configFileName, password)
+
+    if success:
+        if len(fileList) > 0:
+            for index, fileItem in enumerate(fileList):
+                print('{}) {}'.format(index, fileItem))
+        else:
+            print('File empty.')
+
 def createZipFile(filePath):
     # Note that if no compression parameter is given, the resulting zip file will not be compressed.
     with ZipFile(filePath, mode='w', compression=ZIP_DEFLATED) as myzip:
@@ -153,21 +164,16 @@ if __name__ == "__main__":
 
     if args.display:
         filePassword = getpass.getpass()
-        contents, success = readEncryptedFile(scriptDir, gEncryptedConfigFileName, filePassword)    # The password is 'mypw'
-
-        if success:
-            print(contents)
+        printFileList(scriptDir, gEncryptedConfigFileName, filePassword)            # The password is 'mypw'
 
     elif args.add:
         filePassword = getpass.getpass()
         print('Added: {}'.format(args.add))
+        print()
         addFileToList(scriptDir, gEncryptedConfigFileName, args.add, filePassword)
 
         # Print the complete list
-        contents, success = readEncryptedFile(scriptDir, gEncryptedConfigFileName, filePassword)    # The password is 'mypw'
-
-        if success:
-            print(contents)
+        printFileList(scriptDir, gEncryptedConfigFileName, filePassword)  # The password is 'mypw'
 
     elif args.remove:
         print('Removing item {}'.format(args.remove))
@@ -175,10 +181,8 @@ if __name__ == "__main__":
         removeFileFromList(scriptDir, gEncryptedConfigFileName, int(args.remove), filePassword)
 
         # Print the complete list
-        contents, success = readEncryptedFile(scriptDir, gEncryptedConfigFileName, filePassword)    # The password is 'mypw'
+        printFileList(scriptDir, gEncryptedConfigFileName, filePassword)  # The password is 'mypw'
 
-        if success:
-            print(contents)
 
     # encryptFile(scriptDir, configFileName, encryptedConfigFileName, 'mypw')
     # decryptFile(scriptDir, encryptedConfigFileName, 'decrypted_filelist.cfg', 'mypw')
