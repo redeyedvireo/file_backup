@@ -107,6 +107,7 @@ def writeEncryptedFile(configFileDirectory, configFileName, fileContents, passwo
 
 
 def readFileList(fileName):
+    ''' Deprecated - does not handle encryption. '''
     with open(fileName) as fp:
         lines = fp.readlines()
         fileList = [line.strip() for line in lines]
@@ -143,12 +144,21 @@ def printFileList(configFileDirectory, configFileName, password):
         else:
             print('File empty.')
 
-def createZipFile(filePath):
-    # Note that if no compression parameter is given, the resulting zip file will not be compressed.
-    with ZipFile(filePath, mode='w', compression=ZIP_DEFLATED) as myzip:
-        for file in fileList:
-            fileBaseName = os.path.basename(file)
-            myzip.write(file, arcname=fileBaseName)
+
+def createZipFile(configFileDirectory, configFileName, zipFilePath, zipFileName, password):
+    fileList, success = readEncryptedFileList(configFileDirectory, configFileName, password)
+
+    if success:
+        outputFilePath = os.path.join(zipFilePath, zipFileName)
+
+        # Note that if no compression parameter is given, the resulting zip file will not be compressed.
+        with ZipFile(outputFilePath, mode='w', compression=ZIP_DEFLATED) as myzip:
+            for file in fileList:
+                if os.path.exists(file):
+                    fileBaseName = os.path.basename(file)
+                    myzip.write(file, arcname=fileBaseName)
+                else:
+                    print('{} does not exist.  Skipping.'.format(file))
 
 
 # ------------------ Start ------------------
@@ -159,12 +169,18 @@ if __name__ == "__main__":
     argParser.add_argument('-d', '--display', help='Display current list of files to back up', action='store_true')
     argParser.add_argument('-a', '--add', help='Add a file to back up', type=str)
     argParser.add_argument('-r', '--remove', help='Remove a file from the back up list', type=str)
+    argParser.add_argument('-z', '--zip', help='Create Zip file', action='store_true')
 
     args = argParser.parse_args()
 
     if args.display:
         filePassword = getpass.getpass()
         printFileList(scriptDir, gEncryptedConfigFileName, filePassword)            # The password is 'mypw'
+
+    elif args.zip:
+        filePassword = getpass.getpass()
+        createZipFile(scriptDir, gEncryptedConfigFileName, gDestPath, gZipFileName, filePassword)
+        print('Created {}'.format(os.path.join(gDestPath, gZipFileName)))
 
     elif args.add:
         filePassword = getpass.getpass()
@@ -183,9 +199,3 @@ if __name__ == "__main__":
         # Print the complete list
         printFileList(scriptDir, gEncryptedConfigFileName, filePassword)  # The password is 'mypw'
 
-
-    # encryptFile(scriptDir, configFileName, encryptedConfigFileName, 'mypw')
-    # decryptFile(scriptDir, encryptedConfigFileName, 'decrypted_filelist.cfg', 'mypw')
-
-    #fileList = readFileList('filelist.cfg')
-    #createZipFile(zipFilePath)
