@@ -1,3 +1,4 @@
+import sys
 from zipfile import ZipFile, ZIP_DEFLATED
 from cryptography.fernet import Fernet, InvalidToken
 import os.path
@@ -46,7 +47,7 @@ def encryptFile(directory, fileName, outputFileName, password):
 
 
 def encryptBuffer(buffer, password):
-    ''' buffer must be bytes. '''
+    """ buffer must be bytes. """
     tempKey = generateKey(password)
     encrKey = Fernet(tempKey)
     return encrKey.encrypt(buffer)
@@ -75,23 +76,16 @@ def readEncryptedFile(directory, fileName, password):
 
         tempKey = generateKey(password)
         encrKey = Fernet(tempKey)
-        try:
-            descriptedContents = encrKey.decrypt(contents)
-        except InvalidToken:
-            print('Incorrect password')
-            return '', False
+        descriptedContents = encrKey.decrypt(contents)
 
-        return descriptedContents.decode(), True
+        return descriptedContents.decode()
 
 
 def readEncryptedFileList(configFileDirectory, configFileName, password):
-    contents, success = readEncryptedFile(configFileDirectory, configFileName, password)
+    contents = readEncryptedFile(configFileDirectory, configFileName, password)
 
-    if success:
-        fileList = contents.split()
-        return fileList, True
-    else:
-        return [], False
+    fileList = contents.split()
+    return fileList
 
 
 def writeEncryptedFileList(configFileDirectory, configFileName, fileList, password):
@@ -107,58 +101,57 @@ def writeEncryptedFile(configFileDirectory, configFileName, fileContents, passwo
 
 
 def readFileList(fileName):
-    ''' Deprecated - does not handle encryption. '''
+    """ Deprecated - does not handle encryption. """
     with open(fileName) as fp:
         lines = fp.readlines()
         fileList = [line.strip() for line in lines]
         return fileList
 
 
-def addFileToList(configFileDirectory, configFileName, lineToAdd, password):
-    fileList, success = readEncryptedFileList(configFileDirectory, configFileName, password)
+def addFileToList(configFileDirectory, configFileName, filePathToAdd, password):
+    fileList = readEncryptedFileList(configFileDirectory, configFileName, password)
 
-    if success:
-        # print('File list')
-        # for item in fileList:
-        #     print(item)
-        fileList.append(lineToAdd)
+    # Make sure the file exists
+    if os.path.exists(filePathToAdd):
+        fileList.append(filePathToAdd)
         writeEncryptedFileList(configFileDirectory, configFileName, fileList, password)
+    else:
+        raise FileNotFoundError('{} not found.'.format(filePathToAdd))
 
 
 def removeFileFromList(configFileDirectory, configFileName, lineNumberToRemove, password):
-    fileList, success = readEncryptedFileList(configFileDirectory, configFileName, password)
+    fileList = readEncryptedFileList(configFileDirectory, configFileName, password)
 
-    if success:
-        if lineNumberToRemove < len(fileList):
-            del fileList[lineNumberToRemove]
-            writeEncryptedFileList(configFileDirectory, configFileName, fileList, password)
+    if lineNumberToRemove < len(fileList):
+        del fileList[lineNumberToRemove]
+        writeEncryptedFileList(configFileDirectory, configFileName, fileList, password)
+    else:
+        raise IndexError('Invalid entry.')
 
 
 def printFileList(configFileDirectory, configFileName, password):
-    fileList, success = readEncryptedFileList(configFileDirectory, configFileName, password)
+    fileList = readEncryptedFileList(configFileDirectory, configFileName, password)
 
-    if success:
-        if len(fileList) > 0:
-            for index, fileItem in enumerate(fileList):
-                print('{}) {}'.format(index, fileItem))
-        else:
-            print('File empty.')
+    if len(fileList) > 0:
+        for index, fileItem in enumerate(fileList):
+            print('{}) {}'.format(index, fileItem))
+    else:
+        print('File empty.')
 
 
 def createZipFile(configFileDirectory, configFileName, zipFilePath, zipFileName, password):
-    fileList, success = readEncryptedFileList(configFileDirectory, configFileName, password)
+    fileList = readEncryptedFileList(configFileDirectory, configFileName, password)
 
-    if success:
-        outputFilePath = os.path.join(zipFilePath, zipFileName)
+    outputFilePath = os.path.join(zipFilePath, zipFileName)
 
-        # Note that if no compression parameter is given, the resulting zip file will not be compressed.
-        with ZipFile(outputFilePath, mode='w', compression=ZIP_DEFLATED) as myzip:
-            for file in fileList:
-                if os.path.exists(file):
-                    fileBaseName = os.path.basename(file)
-                    myzip.write(file, arcname=fileBaseName)
-                else:
-                    print('{} does not exist.  Skipping.'.format(file))
+    # Note that if no compression parameter is given, the resulting zip file will not be compressed.
+    with ZipFile(outputFilePath, mode='w', compression=ZIP_DEFLATED) as myzip:
+        for file in fileList:
+            if os.path.exists(file):
+                fileBaseName = os.path.basename(file)
+                myzip.write(file, arcname=fileBaseName)
+            else:
+                print('{} does not exist.  Skipping.'.format(file))
 
 
 # ------------------ Start ------------------
@@ -173,29 +166,42 @@ if __name__ == "__main__":
 
     args = argParser.parse_args()
 
-    if args.display:
-        filePassword = getpass.getpass()
-        printFileList(scriptDir, gEncryptedConfigFileName, filePassword)            # The password is 'mypw'
+    # The password is 'mypw'
 
-    elif args.zip:
-        filePassword = getpass.getpass()
-        createZipFile(scriptDir, gEncryptedConfigFileName, gDestPath, gZipFileName, filePassword)
-        print('Created {}'.format(os.path.join(gDestPath, gZipFileName)))
+    try:
+        if args.display:
+            filePassword = getpass.getpass()
+            printFileList(scriptDir, gEncryptedConfigFileName, filePassword)
 
-    elif args.add:
-        filePassword = getpass.getpass()
-        print('Added: {}'.format(args.add))
-        print()
-        addFileToList(scriptDir, gEncryptedConfigFileName, args.add, filePassword)
+        elif args.zip:
+            filePassword = getpass.getpass()
+            createZipFile(scriptDir, gEncryptedConfigFileName, gDestPath, gZipFileName, filePassword)
+            print('Created {}'.format(os.path.join(gDestPath, gZipFileName)))
 
-        # Print the complete list
-        printFileList(scriptDir, gEncryptedConfigFileName, filePassword)  # The password is 'mypw'
+        elif args.add:
+            filePassword = getpass.getpass()
 
-    elif args.remove:
-        print('Removing item {}'.format(args.remove))
-        filePassword = getpass.getpass()
-        removeFileFromList(scriptDir, gEncryptedConfigFileName, int(args.remove), filePassword)
+            addFileToList(scriptDir, gEncryptedConfigFileName, args.add, filePassword)
 
-        # Print the complete list
-        printFileList(scriptDir, gEncryptedConfigFileName, filePassword)  # The password is 'mypw'
+            print('Added: {}\n'.format(args.add))
 
+            # Print the complete list
+            printFileList(scriptDir, gEncryptedConfigFileName, filePassword)  # The password is 'mypw'
+
+        elif args.remove:
+            filePassword = getpass.getpass()
+            removeFileFromList(scriptDir, gEncryptedConfigFileName, int(args.remove), filePassword)
+
+            print('Removed item {}\n'.format(args.remove))
+
+            # Print the complete list
+            printFileList(scriptDir, gEncryptedConfigFileName, filePassword)  # The password is 'mypw'
+
+    except InvalidToken:
+        print('Incorrect password')
+    except IndexError as inst:
+        print(inst)
+    except FileNotFoundError as inst:
+        print(inst)
+    except:
+        print('Unexpected error:', sys.exc_info()[0])
