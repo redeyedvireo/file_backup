@@ -35,10 +35,6 @@ def encryptFile(directory, fileName, outputFileName, password):
     with open(filePath, 'rb') as fp:
         contents = fp.read()
 
-        # tempKey = generateKey(password)
-        # encrKey = Fernet(tempKey)
-        # encryptedContents = encrKey.encrypt(contents)
-
         encryptedContents = encryptBuffer(contents, password)
 
         outputFilePath = os.path.join(directory, outputFileName)
@@ -59,13 +55,18 @@ def decryptFile(directory, fileName, outputFileName, password):
     with open(filePath, 'rb') as fp:
         contents = fp.read()
 
-        tempKey = generateKey(password)
-        encrKey = Fernet(tempKey)
-        descriptedContents = encrKey.decrypt(contents)
+        decryptedContents = decryptBuffer(contents, password)
 
         outputFilePath = os.path.join(directory, outputFileName)
         with open(outputFilePath, 'wb') as outputFile:
-            outputFile.write(descriptedContents)
+            outputFile.write(decryptedContents)
+
+
+def decryptBuffer(buffer, password):
+    """ Buffer must be bytes. """
+    tempKey = generateKey(password)
+    encrKey = Fernet(tempKey)
+    return encrKey.decrypt(buffer)
 
 
 def readEncryptedFile(directory, fileName, password):
@@ -74,11 +75,9 @@ def readEncryptedFile(directory, fileName, password):
     with open(filePath, 'rb') as fp:
         contents = fp.read()
 
-        tempKey = generateKey(password)
-        encrKey = Fernet(tempKey)
-        descriptedContents = encrKey.decrypt(contents)
+        decryptedContents = decryptBuffer(contents, password)
 
-        return descriptedContents.decode()
+        return decryptedContents.decode()
 
 
 def readEncryptedFileList(configFileDirectory, configFileName, password):
@@ -86,6 +85,21 @@ def readEncryptedFileList(configFileDirectory, configFileName, password):
 
     fileList = contents.split()
     return fileList
+
+
+def readAndEncryptFile(directory, fileName, password):
+    """ Reads a file, and encrypts its contents.
+    :param directory: Directory where the file resides
+    :param fileName: Name of file
+    :param password: Password used to encrypt the file
+    :return: The contents of the file, encrypted
+    """
+    filePath = os.path.join(directory, fileName)
+
+    with open(filePath, 'rb') as fp:
+        contents = fp.read()
+
+        return encryptBuffer(contents, password)
 
 
 def writeEncryptedFileList(configFileDirectory, configFileName, fileList, password):
@@ -148,8 +162,12 @@ def createZipFile(configFileDirectory, configFileName, zipFilePath, zipFileName,
     with ZipFile(outputFilePath, mode='w', compression=ZIP_DEFLATED) as myzip:
         for file in fileList:
             if os.path.exists(file):
+                directory = os.path.dirname(file)
                 fileBaseName = os.path.basename(file)
-                myzip.write(file, arcname=fileBaseName)
+                fileBase, fileExtension = os.path.splitext(fileBaseName)
+                newFileName = '{}_encr{}'.format(fileBase, fileExtension)
+                encryptedFileContents = readAndEncryptFile(directory, fileBaseName, password)
+                myzip.writestr(newFileName, encryptedFileContents)
             else:
                 print('{} does not exist.  Skipping.'.format(file))
 
