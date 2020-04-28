@@ -1,5 +1,6 @@
 /venv/
 /.idea/
+/extraction/
 *.zip
 *.bin
 *fileList.cfg
