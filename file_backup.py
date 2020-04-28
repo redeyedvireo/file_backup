@@ -172,6 +172,31 @@ def createZipFile(configFileDirectory, configFileName, zipFilePath, zipFileName,
                 print('{} does not exist.  Skipping.'.format(file))
 
 
+def extractZipFile(zipFilePath, zipFileName, destinationDirectory, password):
+    extractionDirName = 'extraction'
+    extractionPath = os.path.join(destinationDirectory, extractionDirName)
+
+    if not os.path.exists(extractionPath):
+        os.makedirs(extractionPath)
+
+    zipPath = os.path.join(zipFilePath, zipFileName)
+
+    with ZipFile(zipPath, mode='r', compression=ZIP_DEFLATED) as myzip:
+        fileList = myzip.namelist()
+        for file in fileList:
+            print(file)
+            with myzip.open(file) as myfile:
+                contents = myfile.read()
+
+                decryptedContents = decryptBuffer(contents, password)
+
+                newFileName = file.replace("_encr", "")
+
+                outputFilePath = os.path.join(extractionPath, newFileName)
+                with open(outputFilePath, 'wb') as outputFile:
+                    outputFile.write(decryptedContents)
+
+
 # ------------------ Start ------------------
 if __name__ == "__main__":
     scriptDir = os.path.dirname(os.path.realpath(__file__))
@@ -181,6 +206,7 @@ if __name__ == "__main__":
     argParser.add_argument('-a', '--add', help='Add a file to back up', type=str)
     argParser.add_argument('-r', '--remove', help='Remove a file from the back up list', type=str)
     argParser.add_argument('-z', '--zip', help='Create Zip file', action='store_true')
+    argParser.add_argument('-e', '--extract', help='Extract contents of Zip file', action='store_true')
 
     args = argParser.parse_args()
 
@@ -195,6 +221,10 @@ if __name__ == "__main__":
             filePassword = getpass.getpass()
             createZipFile(scriptDir, gEncryptedConfigFileName, gDestPath, gZipFileName, filePassword)
             print('Created {}'.format(os.path.join(gDestPath, gZipFileName)))
+
+        elif args.extract:
+            filePassword = getpass.getpass()
+            extractZipFile(gDestPath, gZipFileName, scriptDir, filePassword)
 
         elif args.add:
             filePassword = getpass.getpass()
