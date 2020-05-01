@@ -11,6 +11,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+
 gDestPath = 'c:\\temp'
 gZipFileName = 'file-backup.zip'
 gConfigFileName = 'filelist.cfg'
@@ -221,18 +222,27 @@ if __name__ == "__main__":
     argParser.add_argument('-r', '--remove', help='Remove a file from the back up list', type=str)
     argParser.add_argument('-z', '--zip', help='Create Zip file', action='store_true')
     argParser.add_argument('-e', '--extract', help='Extract contents of Zip file', action='store_true')
+    argParser.add_argument('-c', '--config', help='Location of the config file', type=str)
 
     args = argParser.parse_args()
 
     # The password is 'mypw'
 
     try:
-        # Read INI file
-        # For now, assume the INI file is in the same directory as this script.
+        # First, read the Config file
+
+        # If not supplied by the user, assume the INI file is in the same directory as this script.
         iniFilePath = os.path.join(scriptDir, gIniFileName)
+
+        if args.config is not None and len(args.config) > 0:
+            # User supplied a path to the Config file.  Use this instead.
+            iniFilePath = args.config
+
+        # Make sure the Config file can be found
+        if not os.path.exists(iniFilePath):
+            raise FileNotFoundError('Config file not found.')
+
         fileListPath, zipFilePath, extractionDirectory = readIniFile(iniFilePath)
-        # print('File list path: {}'.format(fileListPath))
-        # print('Zip file path: {}'.format(zipFilePath))
 
         if args.display:
             filePassword = getpass.getpass()
